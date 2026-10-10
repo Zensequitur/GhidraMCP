@@ -205,8 +205,9 @@ def set_plate_comment(address: str, comment: str) -> str:
     "@status verified: disassembly at 01001f93". Keep the plan and notes about
     what has been tried out of comments.
 
-    This replaces any plate comment already at the address, and no tool reads
-    plate comments back yet, so do not overwrite a comment you have not seen.
+    This replaces any plate comment already at the address, so call
+    get_comments first and keep or merge what is there. Wrap lines at about
+    60 characters, because Ghidra's listing cuts longer lines off with "...".
     """
     return safe_post("set_plate_comment", {"address": address, "comment": comment})
 
