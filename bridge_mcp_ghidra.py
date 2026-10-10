@@ -298,6 +298,57 @@ def list_strings(offset: int = 0, limit: int = 2000, filter: str = None) -> list
         params["filter"] = filter
     return safe_get("strings", params)
 
+# Tools that only read from Ghidra. --read-only keeps these and removes every
+# other registered tool, so a tool added later stays hidden until listed here.
+READ_ONLY_TOOLS = {
+    "list_methods",
+    "list_classes",
+    "decompile_function",
+    "list_segments",
+    "list_imports",
+    "list_exports",
+    "list_namespaces",
+    "list_data_items",
+    "search_functions_by_name",
+    "get_function_by_address",
+    "get_current_address",
+    "get_current_function",
+    "list_functions",
+    "decompile_function_by_address",
+    "disassemble_function",
+    "get_xrefs_to",
+    "get_xrefs_from",
+    "get_function_xrefs",
+    "list_strings",
+}
+
+
+def _registered_tool_names() -> set:
+    """Names of the tools currently registered with the MCP server."""
+    import asyncio
+    import inspect
+
+    listed = mcp.list_tools()
+    if inspect.isawaitable(listed):
+        listed = asyncio.run(listed)
+    return {tool.name for tool in listed}
+
+
+def apply_read_only():
+    """Remove every tool not in READ_ONLY_TOOLS; exit if the result differs from it."""
+    import sys
+
+    for name in sorted(_registered_tool_names() - READ_ONLY_TOOLS):
+        mcp.remove_tool(name)
+    remaining = _registered_tool_names()
+    if remaining != READ_ONLY_TOOLS:
+        sys.exit(
+            "read-only setup failed: missing "
+            f"{sorted(READ_ONLY_TOOLS - remaining)}, extra {sorted(remaining - READ_ONLY_TOOLS)}"
+        )
+    print(f"read-only mode: {len(remaining)} tools", file=sys.stderr)
+
+
 def main():
     parser = argparse.ArgumentParser(description="MCP server for Ghidra")
     parser.add_argument("--ghidra-server", type=str, default=DEFAULT_GHIDRA_SERVER,
@@ -310,6 +361,8 @@ def main():
                         help="Transport protocol for MCP, default: stdio")
     parser.add_argument("--timeout", type=float, default=DEFAULT_REQUEST_TIMEOUT,
                         help=f"Seconds to wait for each request to Ghidra, default: {DEFAULT_REQUEST_TIMEOUT}")
+    parser.add_argument("--read-only", action="store_true",
+                        help="Expose only the read-only tools; hide every tool that can change the project")
     args = parser.parse_args()
     
     # Use the global variable to ensure it's properly updated
@@ -317,6 +370,8 @@ def main():
     if args.ghidra_server:
         ghidra_server_url = args.ghidra_server
     request_timeout = args.timeout
+    if args.read_only:
+        apply_read_only()
     
     if args.transport == "sse":
         try:
