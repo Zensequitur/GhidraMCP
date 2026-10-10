@@ -211,6 +211,29 @@ def set_plate_comment(address: str, comment: str) -> str:
     return safe_post("set_plate_comment", {"address": address, "comment": comment})
 
 @mcp.tool()
+def get_comments(address: str) -> str:
+    """
+    Get every comment at an address (plate, pre, end-of-line, post and
+    repeatable), each with its status taken from its "@status" line:
+    verified, hypothesis, todo, or none if the comment has no such line.
+    Call this before writing a plate comment so you do not overwrite one.
+    """
+    return "\n".join(safe_get("get_comments", {"address": address}))
+
+@mcp.tool()
+def list_comments(status: str = None, offset: int = 0, limit: int = 100) -> list:
+    """
+    List comments in the program, one per line as "address TYPE [status] first
+    line", in address order. Pass status (verified, hypothesis, todo, or none)
+    to see only comments with that status, for example to find what is still
+    unconfirmed. Use get_comments for the full text at an address.
+    """
+    params = {"offset": offset, "limit": limit}
+    if status:
+        params["status"] = status
+    return safe_get("list_comments", params)
+
+@mcp.tool()
 def set_decompiler_comment(address: str, comment: str) -> str:
     """
     Set a comment for a given address in the function pseudocode.
@@ -337,6 +360,8 @@ READ_ONLY_TOOLS = {
     "get_xrefs_from",
     "get_function_xrefs",
     "list_strings",
+    "get_comments",
+    "list_comments",
 }
 
 

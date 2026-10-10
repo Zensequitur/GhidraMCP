@@ -247,6 +247,20 @@ public class GhidraMCPPlugin extends Plugin {
             sendResponse(exchange, success ? "Comment set successfully" : "Failed to set comment");
         });
 
+        server.createContext("/get_comments", exchange -> {
+            Map<String, String> qparams = parseQueryParams(exchange);
+            String address = qparams.get("address");
+            sendResponse(exchange, getComments(address));
+        });
+
+        server.createContext("/list_comments", exchange -> {
+            Map<String, String> qparams = parseQueryParams(exchange);
+            String status = qparams.get("status");
+            int offset = parseIntOrDefault(qparams.get("offset"), 0);
+            int limit = parseIntOrDefault(qparams.get("limit"), 100);
+            sendResponse(exchange, listComments(status, offset, limit));
+        });
+
         server.createContext("/rename_function_by_address", exchange -> {
             Map<String, String> params = parsePostParams(exchange);
             String functionAddress = params.get("function_address");
@@ -914,6 +928,100 @@ public class GhidraMCPPlugin extends Plugin {
      */
     private boolean setPlateComment(String addressStr, String comment) {
         return setCommentAtAddress(addressStr, comment, CommentType.PLATE, "Set plate comment");
+    }
+
+    private static final java.util.regex.Pattern STATUS_PATTERN =
+        java.util.regex.Pattern.compile("(?mi)^[ \\t]*@status\\b[ \\t:]*([A-Za-z-]+)");
+
+    // Comment types in the order they are reported.
+    private static final CommentType[] COMMENT_TYPES = {
+        CommentType.PLATE, CommentType.PRE, CommentType.EOL,
+        CommentType.POST, CommentType.REPEATABLE
+    };
+
+    /**
+     * Return the status word from a comment's "@status" line in lowercase,
+     * or "none" if the comment has no such line.
+     */
+    private String commentStatus(String comment) {
+        java.util.regex.Matcher m = STATUS_PATTERN.matcher(comment);
+        return m.find() ? m.group(1).toLowerCase(java.util.Locale.ROOT) : "none";
+    }
+
+    /**
+     * Return the first non-blank line of a comment, shortened to 100 characters.
+     */
+    private String firstLine(String comment) {
+        for (String line : comment.split("\n")) {
+            String t = line.trim();
+            if (!t.isEmpty()) {
+                return t.length() > 100 ? t.substring(0, 100) + "..." : t;
+            }
+        }
+        return "";
+    }
+
+    /**
+     * Get every comment at an address, one block per comment type, each with
+     * its status.
+     */
+    private String getComments(String addressStr) {
+        Program program = getCurrentProgram();
+        if (program == null) return "No program loaded";
+        if (addressStr == null || addressStr.isEmpty()) return "Address is required";
+
+        try {
+            Address addr = program.getAddressFactory().getAddress(addressStr);
+            if (addr == null) return "Invalid address: " + addressStr;
+            Listing listing = program.getListing();
+
+            StringBuilder result = new StringBuilder();
+            for (CommentType type : COMMENT_TYPES) {
+                String comment = listing.getComment(type, addr);
+                if (comment == null || comment.isEmpty()) continue;
+                if (result.length() > 0) result.append("\n\n");
+                result.append(String.format("== %s (status: %s) ==\n%s",
+                    type.name(), commentStatus(comment), comment));
+            }
+            return result.length() > 0 ? result.toString() : "No comments at " + addr;
+        } catch (Exception e) {
+            return "Error getting comments: " + e.getMessage();
+        }
+    }
+
+    /**
+     * List comments across the program, optionally only those with a given
+     * status, as "address TYPE [status] first line". Only addresses inside the
+     * program's memory are visited.
+     */
+    private String listComments(String status, int offset, int limit) {
+        Program program = getCurrentProgram();
+        if (program == null) return "No program loaded";
+
+        try {
+            Listing listing = program.getListing();
+            String wanted = (status == null || status.trim().isEmpty())
+                ? null : status.trim().toLowerCase(java.util.Locale.ROOT);
+
+            List<String> lines = new ArrayList<>();
+            ghidra.program.model.address.AddressIterator addrs =
+                listing.getCommentAddressIterator(program.getMemory(), true);
+            while (addrs.hasNext()) {
+                Address addr = addrs.next();
+                for (CommentType type : COMMENT_TYPES) {
+                    String comment = listing.getComment(type, addr);
+                    if (comment == null || comment.isEmpty()) continue;
+                    String found = commentStatus(comment);
+                    if (wanted != null && !wanted.equals(found)) continue;
+                    lines.add(String.format("%s %s [%s] %s",
+                        addr, type.name(), found, firstLine(comment)));
+                }
+            }
+            if (lines.isEmpty()) return "No comments found";
+            return paginateList(lines, offset, limit);
+        } catch (Exception e) {
+            return "Error listing comments: " + e.getMessage();
+        }
     }
 
     /**
