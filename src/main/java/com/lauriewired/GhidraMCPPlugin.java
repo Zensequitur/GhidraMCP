@@ -239,6 +239,14 @@ public class GhidraMCPPlugin extends Plugin {
             sendResponse(exchange, success ? "Comment set successfully" : "Failed to set comment");
         });
 
+        server.createContext("/set_plate_comment", exchange -> {
+            Map<String, String> params = parsePostParams(exchange);
+            String address = params.get("address");
+            String comment = params.get("comment");
+            boolean success = setPlateComment(address, comment);
+            sendResponse(exchange, success ? "Comment set successfully" : "Failed to set comment");
+        });
+
         server.createContext("/rename_function_by_address", exchange -> {
             Map<String, String> params = parsePostParams(exchange);
             String functionAddress = params.get("function_address");
@@ -897,6 +905,15 @@ public class GhidraMCPPlugin extends Plugin {
      */
     private boolean setDisassemblyComment(String addressStr, String comment) {
         return setCommentAtAddress(addressStr, comment, CommentType.EOL, "Set disassembly comment");
+    }
+
+    /**
+     * Set a plate comment at an address. A plate comment is the block of text
+     * Ghidra shows above a function, data item or label, so it is the place for
+     * a doc comment. This replaces any plate comment already at the address.
+     */
+    private boolean setPlateComment(String addressStr, String comment) {
+        return setCommentAtAddress(addressStr, comment, CommentType.PLATE, "Set plate comment");
     }
 
     /**

@@ -194,6 +194,23 @@ def disassemble_function(address: str) -> list:
     return safe_get("disassemble_function", {"address": address})
 
 @mcp.tool()
+def set_plate_comment(address: str, comment: str) -> str:
+    """
+    Set the plate comment at an address: the block shown above a function, data
+    item or label. Use it for a documentation comment written for a human reader,
+    in prose, in the style of Javadoc or XML doc comments: a short summary, then
+    what the code does and what is still unknown, then @param, @returns and
+    @remarks lines where they help. End with one "@status" line giving
+    verified, hypothesis or todo and a short reason, for example
+    "@status verified: disassembly at 01001f93". Keep the plan and notes about
+    what has been tried out of comments.
+
+    This replaces any plate comment already at the address, and no tool reads
+    plate comments back yet, so do not overwrite a comment you have not seen.
+    """
+    return safe_post("set_plate_comment", {"address": address, "comment": comment})
+
+@mcp.tool()
 def set_decompiler_comment(address: str, comment: str) -> str:
     """
     Set a comment for a given address in the function pseudocode.
