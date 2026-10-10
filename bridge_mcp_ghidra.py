@@ -15,6 +15,9 @@ from urllib.parse import urljoin
 from mcp.server.fastmcp import FastMCP
 
 DEFAULT_GHIDRA_SERVER = "http://127.0.0.1:8080/"
+# Seconds to wait on the Ghidra plugin. The plugin gives up on a decompile
+# after 30 s, so stay above that to see its error instead of a bridge timeout.
+DEFAULT_REQUEST_TIMEOUT = 65
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +25,7 @@ mcp = FastMCP("ghidra-mcp")
 
 # Initialize ghidra_server_url with default value
 ghidra_server_url = DEFAULT_GHIDRA_SERVER
+request_timeout = DEFAULT_REQUEST_TIMEOUT
 
 def safe_get(endpoint: str, params: dict = None) -> list:
     """
@@ -33,7 +37,7 @@ def safe_get(endpoint: str, params: dict = None) -> list:
     url = urljoin(ghidra_server_url, endpoint)
 
     try:
-        response = requests.get(url, params=params, timeout=5)
+        response = requests.get(url, params=params, timeout=request_timeout)
         response.encoding = 'utf-8'
         if response.ok:
             return response.text.splitlines()
@@ -46,9 +50,9 @@ def safe_post(endpoint: str, data: dict | str) -> str:
     try:
         url = urljoin(ghidra_server_url, endpoint)
         if isinstance(data, dict):
-            response = requests.post(url, data=data, timeout=5)
+            response = requests.post(url, data=data, timeout=request_timeout)
         else:
-            response = requests.post(url, data=data.encode("utf-8"), timeout=5)
+            response = requests.post(url, data=data.encode("utf-8"), timeout=request_timeout)
         response.encoding = 'utf-8'
         if response.ok:
             return response.text.strip()
@@ -304,12 +308,15 @@ def main():
                         help="Port to run MCP server on (only used for sse), default: 8081")
     parser.add_argument("--transport", type=str, default="stdio", choices=["stdio", "sse"],
                         help="Transport protocol for MCP, default: stdio")
+    parser.add_argument("--timeout", type=float, default=DEFAULT_REQUEST_TIMEOUT,
+                        help=f"Seconds to wait for each request to Ghidra, default: {DEFAULT_REQUEST_TIMEOUT}")
     args = parser.parse_args()
     
     # Use the global variable to ensure it's properly updated
-    global ghidra_server_url
+    global ghidra_server_url, request_timeout
     if args.ghidra_server:
         ghidra_server_url = args.ghidra_server
+    request_timeout = args.timeout
     
     if args.transport == "sse":
         try:
