@@ -257,7 +257,14 @@ def get_xrefs_from(address: str, offset: int = 0, limit: int = 100) -> list:
 @mcp.tool()
 def get_function_xrefs(name: str, offset: int = 0, limit: int = 100) -> list:
     """
-    Get all references to the specified function by name.
+    Get all references to an internal function, looked up by name.
+
+    Does not work for imported API functions such as GetVersionExW. Imports are
+    external symbols, not functions in the program, so this tool reports no
+    references for them. For an import, call list_imports to get its
+    EXTERNAL:xxxxxxxx address, then call get_xrefs_to with that address. The
+    result lists the import's pointer entry (DATA) and each call site
+    (COMPUTED_CALL).
     
     Args:
         name: Function name to search for
