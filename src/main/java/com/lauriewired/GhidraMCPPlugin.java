@@ -840,7 +840,7 @@ public class GhidraMCPPlugin extends Plugin {
                 if (instr.getAddress().compareTo(end) > 0) {
                     break; // Stop if we've gone past the end of the function
                 }
-                String comment = listing.getComment(CodeUnit.EOL_COMMENT, instr.getAddress());
+                String comment = listing.getComment(CommentType.EOL, instr.getAddress());
                 comment = (comment != null) ? "; " + comment : "";
 
                 result.append(String.format("%s: %s %s\n", 
@@ -856,9 +856,9 @@ public class GhidraMCPPlugin extends Plugin {
     }    
 
     /**
-     * Set a comment using the specified comment type (PRE_COMMENT or EOL_COMMENT)
+     * Set a comment of the given type at an address (CommentType.PRE or CommentType.EOL)
      */
-    private boolean setCommentAtAddress(String addressStr, String comment, int commentType, String transactionName) {
+    private boolean setCommentAtAddress(String addressStr, String comment, CommentType commentType, String transactionName) {
         Program program = getCurrentProgram();
         if (program == null) return false;
         if (addressStr == null || addressStr.isEmpty() || comment == null) return false;
@@ -889,14 +889,14 @@ public class GhidraMCPPlugin extends Plugin {
      * Set a comment for a given address in the function pseudocode
      */
     private boolean setDecompilerComment(String addressStr, String comment) {
-        return setCommentAtAddress(addressStr, comment, CodeUnit.PRE_COMMENT, "Set decompiler comment");
+        return setCommentAtAddress(addressStr, comment, CommentType.PRE, "Set decompiler comment");
     }
 
     /**
      * Set a comment for a given address in the function disassembly
      */
     private boolean setDisassemblyComment(String addressStr, String comment) {
-        return setCommentAtAddress(addressStr, comment, CodeUnit.EOL_COMMENT, "Set disassembly comment");
+        return setCommentAtAddress(addressStr, comment, CommentType.EOL, "Set disassembly comment");
     }
 
     /**
